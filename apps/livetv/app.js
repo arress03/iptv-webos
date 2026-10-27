@@ -84,11 +84,43 @@
     var selCat = listCat || (cats[0] && cats[0].id);
     var catsBox = el('div', { class: 'cats' }), listBox = el('div', { class: 'list' });
     var search = el('input', { f: 1, type: 'text', placeholder: 'Rechercher une chaîne…' });
-    var root = el('div', { class: 'live' + (Player.active ? '' : ' solid') }, [catsBox, el('div', { class: 'chans' }, [search, listBox]),
+    var pv = el('div', { class: 'pv' });
+    var root = el('div', { class: 'live' + (Player.active ? '' : ' solid') }, [catsBox, el('div', { class: 'chans' }, [search, listBox]), pv,
       el('div', { class: 'hint', text: 'OK : regarder   ·   Rouge : réglages   ·   Vert : favori' })]);
     document.body.appendChild(root); Nav.push(root);
-    panel = { root: root, list: listBox };
-    var view = [], shown = 0;
+    panel = { root: root, list: listBox, close: function () { clearTimeout(pvT); pvTok++; } };
+    var view = [], shown = 0, pvT = null, pvTok = 0;
+
+    function hhmm(ts) { var d = new Date(ts * 1000); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+    // Aperçu : uniquement le guide (aucun flux ouvert) ; demandé après 450 ms d'arrêt sur la chaîne.
+    function preview(ch) {
+      clearTimeout(pvT); var tok = ++pvTok;
+      pv.innerHTML = '';
+      var logo = el('div', { class: 'pl' }); if (ch.logo) logo.style.backgroundImage = 'url("' + ch.logo.replace(/"/g, '%22') + '")';
+      pv.appendChild(el('div', { class: 'ph2' }, [logo, el('div', { class: 'pn', text: ch.num + '  ' + ch.name })]));
+      var body = el('div', { class: 'pb' }, [el('div', { class: 'pm', text: 'Chargement du programme…' })]); pv.appendChild(body);
+      pvT = setTimeout(function () {
+        Xt.call('get_short_epg', { stream_id: ch.id, limit: 3 }, 120000).then(function (r) {
+          if (tok !== pvTok) return;
+          var l = ((r && r.epg_listings) || []).map(function (e) {
+            return { t: I.b64(e.title || ''), d: I.b64(e.description || ''), s: parseInt(e.start_timestamp, 10), e: parseInt(e.stop_timestamp, 10) };
+          }), now = Math.floor(Date.now() / 1000);
+          body.innerHTML = '';
+          if (!l.length) { body.appendChild(el('div', { class: 'pm', text: 'Pas de guide pour cette chaîne.' })); return; }
+          var i = 0; l.forEach(function (x, k) { if (x.s <= now && now < x.e) i = k; });
+          var c = l[i];
+          body.appendChild(el('div', { class: 'pk', text: 'EN CE MOMENT' }));
+          body.appendChild(el('div', { class: 'pt2', text: c.t }));
+          if (c.s && c.e) {
+            body.appendChild(el('div', { class: 'pm', text: hhmm(c.s) + ' – ' + hhmm(c.e) }));
+            var bar = el('i'); bar.style.width = Math.max(0, Math.min(100, 100 * (now - c.s) / Math.max(1, c.e - c.s))) + '%';
+            body.appendChild(el('div', { class: 'pbar' }, [bar]));
+          }
+          if (c.d) body.appendChild(el('div', { class: 'pd', text: c.d.length > 360 ? c.d.slice(0, 357) + '…' : c.d }));
+          l.slice(i + 1, i + 3).forEach(function (x) { body.appendChild(el('div', { class: 'pn2', text: (x.s ? hhmm(x.s) + '  ' : '') + x.t })); });
+        }).catch(function () { if (tok === pvTok) { body.innerHTML = ''; body.appendChild(el('div', { class: 'pm', text: 'Guide indisponible.' })); } });
+      }, 450);
+    }
 
     function drawCats() {
       catsBox.innerHTML = '';
@@ -105,7 +137,7 @@
         el('div', { class: 't', text: ch.name }), favs.indexOf(ch.id) >= 0 ? el('div', { class: 'fav', text: '★' }) : null]);
       r._ch = ch;
       r.addEventListener('click', function () { listCat = selCat === 'fav' ? 'fav' : ch.cat; closePanel(); tune(ch, true); });
-      r.addEventListener('focus', function () { if (view.indexOf(ch) >= shown - 10) more(); });
+      r.addEventListener('focus', function () { if (view.indexOf(ch) >= shown - 10) more(); preview(ch); });
       return r;
     }
     function more() { var end = Math.min(view.length, shown + 60); for (var i = shown; i < end; i++) listBox.appendChild(row(view[i])); shown = end; }
@@ -122,13 +154,21 @@
     Nav.focus(curRow || listBox.firstChild || catsBox.firstChild);
 
     panel.off = I.onKey(function (ev, k) {
-      var f = document.activeElement;
+      var f = document.activeElement, cl = (f && f.classList) || { contains: function () { return false; } };
+      var inList = !!(f && f._ch), inCats = cl.contains('cat'), inSearch = f === search, firstRow = listBox.firstChild && listBox.firstChild._ch ? listBox.firstChild : null;
+      var selCatEl = catsBox.querySelector('.cat.sel') || catsBox.firstChild;
+      // Navigation par zones : catégories ← → chaînes, recherche au-dessus des chaînes.
+      if (k === KEY.LEFT && inList) { Nav.focus(selCatEl); return true; }
+      if (k === KEY.LEFT && inSearch && search.selectionStart === 0) { Nav.focus(selCatEl); return true; }
+      if (k === KEY.RIGHT && inCats) { Nav.focus(firstRow || search); return true; }
+      if (k === KEY.UP && inList && f === firstRow) { Nav.focus(search); return true; }
+      if (k === KEY.DOWN && inSearch) { Nav.focus(firstRow || selCatEl); return true; }
       if (k === KEY.GREEN && f && f._ch) { toggleFav(f._ch); var n = row(f._ch); f.replaceWith(n); Nav.focus(n); return true; }
       if (k === KEY.RED) { openSettings(); return true; }
       return false;
     });
   }
-  function closePanel() { if (!panel) return; panel.off(); Nav.pop(); panel.root.remove(); panel = null; }
+  function closePanel() { if (!panel) return; panel.off(); panel.close && panel.close(); Nav.pop(); panel.root.remove(); panel = null; }
   function openSettings() {
     var mode = I.ls('live.mode') === 'hls' ? 'hls' : 'ts';
     I.settings([{ label: 'Mode : ' + (mode === 'ts' ? 'TS direct (latence minimale) → passer en HLS' : 'HLS (plus compatible) → passer en TS direct'),

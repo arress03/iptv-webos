@@ -15,6 +15,12 @@ Ouvre l'adresse sur ton téléphone (même Wi-Fi), saisis le code, ton serveur/u
 les identifiants auprès du fournisseur puis les enregistre. **Une seule saisie pour les 3 apps** (fichier partagé sur la TV).
 La page reste ouverte 10 minutes max ; 5 mauvais codes la ferment. La saisie à la télécommande reste disponible sous l'adresse.
 
+## Fiches films / séries
+Affiches, notes, synopsis, bande-annonce (ouverte dans l'app YouTube de la TV), distribution avec photos.
+Sans réglage : photos des acteurs depuis Wikipédia (uniquement si une page porte exactement le nom de l'acteur) et synopsis du fournisseur.
+Avec une clé API TMDB gratuite (Rouge → *Clé TMDB…*, ou champ dans la page téléphone) : synopsis en français, distribution avec photos et rôles,
+bandes-annonces, pour les titres où le fournisseur donne l'identifiant TMDB.
+
 ## Connexions simultanées (anti-ban)
 - Chaque app n'ouvre **qu'un seul flux à la fois**, et les appels API sont mis en file (1 à la fois, 150 ms d'écart).
 - Dès que tu quittes l'app (Retour, Home, autre app, relance), le flux est **coupé** : l'écran est libéré chez le fournisseur, **sans te déconnecter** (identifiants conservés).

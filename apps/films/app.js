@@ -7,29 +7,37 @@
     var layer = el('div', { class: 'detail' });
     var poster = el('div', { class: 'poster' });
     if (it.img) poster.style.backgroundImage = 'url("' + it.img.replace(/"/g, '%22') + '")';
-    var meta = el('div', { class: 'badges' }), cast = el('div', { class: 'cast' }), plot = el('div', { class: 'plot' }), trailerId = null;
+    var meta = el('div', { class: 'badges' }), cast = el('div', { class: 'cast' }), plot = el('div', { class: 'plot' }), castBox = el('div', { class: 'casts' }), trailerId = null;
     var row = el('div', { class: 'row' });
     layer.appendChild(poster);
-    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, cast, row]));
+    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, cast, castBox, row]));
     document.body.appendChild(layer); Nav.push(layer);
     var closed = false;
     function close() { if (closed) return; closed = true; off(); Nav.pop(); layer.remove(); done && done(); }
     var off = I.onKey(function (ev, k) { if ((k === I.KEY.BACK || k === I.KEY.ESC || k === I.KEY.BKSP) && Nav.layer === layer) { close(); return true; } return false; });
 
-    var ext = it.ext || 'mp4';
+    var ext = it.ext || 'mp4', trailerBtn = null;
+    function showTrailer() { if (trailerBtn && trailerId) trailerBtn.classList.remove('hidden'); }
     Xt.call('get_vod_info', { vod_id: it.id }, I.DAY).then(function (r) {
       var info = (r && r.info) || {}, md = (r && r.movie_data) || {};
       ext = md.container_extension || ext;
       var bits = [info.releasedate && String(info.releasedate).slice(0, 4), info.duration, info.genre].filter(Boolean);
       bits.forEach(function (b) { meta.appendChild(el('span', { text: b })); });
       if (parseFloat(info.rating) > 0) meta.appendChild(el('span', { class: 'star', text: '★ ' + parseFloat(info.rating).toFixed(1) }));
-      plot.textContent = info.plot || info.description || '';
-      var who = [info.director && ('De ' + info.director), info.cast && ('Avec ' + String(info.cast).split(',').slice(0, 5).join(','))].filter(Boolean);
-      cast.textContent = who.join('  ·  ');
+      var p1 = String(info.plot || ''), p2 = String(info.description || '');
+      plot.textContent = p2.length > p1.length ? p2 : p1;
+      cast.textContent = info.director ? 'De ' + info.director : '';
+      VOD.castView(castBox, VOD.Meta.names(info.cast).map(function (n) { return { name: n }; }));
+      VOD.Meta.enrich({ kind: 'movie', tmdbId: info.tmdb_id || info.tmdb, castStr: info.cast }).then(function (m) {
+        if (closed) return;
+        if (m.overview && m.overview.length > plot.textContent.length) plot.textContent = m.overview;
+        if (m.cast && m.cast.length) VOD.castView(castBox, m.cast);
+        if (!trailerId && m.trailer) { trailerId = m.trailer; showTrailer(); }
+      });
       var bd = Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path;
       VOD.backdrop(layer, bd || info.movie_image || it.img);
       if (info.movie_image && !it.img) poster.style.backgroundImage = 'url("' + info.movie_image + '")';
-      trailerId = info.youtube_trailer || null;
+      trailerId = VOD.Meta.ytId(info.youtube_trailer);
     }).catch(function () {}).then(buttons);
 
     function buttons() {
@@ -52,7 +60,9 @@
         var p = el('button', { f: 1, class: 'btn primary', text: '▶ Lecture' });
         p.addEventListener('click', function () { go(false); }); row.appendChild(p);
       }
-      if (trailerId) { var t = el('button', { f: 1, class: 'btn', text: '🎬 Bande-annonce' }); t.addEventListener('click', function () { VOD.trailer(trailerId); }); row.appendChild(t); }
+      trailerBtn = el('button', { f: 1, class: 'btn hidden', text: '🎬 Bande-annonce' });
+      trailerBtn.addEventListener('click', function () { VOD.trailer(trailerId); }); row.appendChild(trailerBtn);
+      if (trailerId) showTrailer();
       var b = el('button', { f: 1, class: 'btn', text: 'Retour' });
       b.addEventListener('click', close); row.appendChild(b);
       Nav.first();

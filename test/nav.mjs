@@ -1,0 +1,23 @@
+import { createRequire } from 'node:module'; const { chromium } = createRequire(import.meta.url)(process.env.PW || 'playwright');
+const b = await chromium.launch(); const errs = [];
+const cfg = JSON.stringify({ server: 'http://localhost:8089', username: 'u', password: 'p' });
+async function page(app) { const p = await b.newPage({ viewport: { width: 1920, height: 1080 } }); p.on('pageerror', e => errs.push(app + ' ' + e.message));
+  await p.addInitScript(c => { localStorage.setItem('xt.cfg', c); window.__lc = []; window.PalmServiceBridge = function () { this.call = (u, pl) => { window.__lc.push(u + ' ' + pl); setTimeout(() => this.onservicecallback(JSON.stringify({ returnValue: false, errorText: 'stub' })), 10); }; }; }, cfg);
+  await p.goto(`http://localhost:8090/${app}/index.html`); return p; }
+const foc = p => p.evaluate(() => { const f = document.activeElement; return f ? (f.className + '|' + (f.textContent || '').slice(0, 25)) : 'none'; });
+let p = await page('livetv'); await p.waitForSelector('.live'); await p.waitForTimeout(900);
+console.log('start', await foc(p));
+await p.keyboard.press('ArrowLeft'); console.log('left from list ->', await foc(p));
+await p.keyboard.press('ArrowRight'); console.log('right from cats ->', await foc(p));
+await p.keyboard.press('ArrowUp'); console.log('up from first row ->', await foc(p));
+await p.keyboard.press('ArrowDown'); await p.keyboard.press('ArrowDown'); await p.waitForTimeout(1200);
+await p.screenshot({ path: '/tmp/claude-0/shots/8-live-preview.png' });
+p = await page('films'); await p.waitForSelector('.grid .card'); await p.waitForTimeout(500);
+console.log('films start', await foc(p)); await p.keyboard.press('ArrowLeft'); console.log('films left ->', await foc(p));
+await p.keyboard.press('ArrowRight'); console.log('films right ->', await foc(p)); await p.keyboard.press('ArrowUp'); console.log('films up ->', await foc(p));
+await p.keyboard.press('ArrowDown'); console.log('films down ->', await foc(p));
+await p.keyboard.press('Enter'); await p.waitForSelector('.detail .btn'); await p.waitForTimeout(1500);
+await p.screenshot({ path: '/tmp/claude-0/shots/9-film-detail.png' });
+await p.keyboard.press('ArrowRight'); await p.keyboard.press('Enter'); await p.waitForTimeout(600);
+console.log('trailer luna calls', await p.evaluate(() => window.__lc.filter(x => /applicationManager|hbchannel/.test(x)).join(' || ')));
+console.log('errors', errs); await b.close();

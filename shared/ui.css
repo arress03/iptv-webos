@@ -96,3 +96,12 @@ body.buffering .spinner { display:block; }
 .pair .pt { color:var(--mut); font-size:24px; }
 .pair .pu { font-size:46px; font-weight:700; margin:6px 0; color:var(--acc); }
 .pair .pc { font-size:40px; letter-spacing:.06em; }
+
+.detail .plot { max-height:215px; font-size:24px; line-height:1.35; }
+.casts { display:flex; gap:20px; overflow:hidden; margin-top:4px; }
+.cs { width:116px; flex:none; text-align:center; }
+.av { width:96px; height:96px; border-radius:50%; margin:0 auto 8px; background:linear-gradient(160deg,#2b3a63,#161b28); position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center; font-size:38px; color:#9fb0d3; font-weight:600; }
+.av img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.cn { font-size:19px; line-height:1.15; max-height:2.3em; overflow:hidden; }
+.cr { font-size:16px; color:var(--mut); max-height:1.2em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }

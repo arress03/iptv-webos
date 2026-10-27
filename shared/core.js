@@ -272,6 +272,19 @@
     });
   }
 
+  // Appel d'un service quelconque (ex. lancer YouTube). Résout toujours, jamais d'exception.
+  function lunaUri(uri, params) {
+    return new Promise(function (resolve) {
+      try {
+        if (typeof PalmServiceBridge === 'undefined') return resolve({ returnValue: false, errorText: 'no-bridge' });
+        var b = new PalmServiceBridge(), done = false;
+        var t = setTimeout(function () { if (!done) { done = true; resolve({ returnValue: false, errorText: 'timeout' }); } }, 6000);
+        b.onservicecallback = function (m) { if (done) return; done = true; clearTimeout(t); var r; try { r = JSON.parse(m); } catch (e) { r = { returnValue: false, errorText: 'parse' }; } resolve(r); };
+        b.call(uri, JSON.stringify(params || {}));
+      } catch (e) { resolve({ returnValue: false, errorText: String(e) }); }
+    });
+  }
+
   /* ---------- Écran de connexion ---------- */
   function login(opts) {
     return new Promise(function (resolve) {
@@ -289,6 +302,7 @@
       function finish(ui) { if (finished) return; finished = true; clearInterval(poll); luna('stopPair'); Nav.pop(); layer.remove(); resolve(ui); }
       function useConfig(c) {
         Xt.cfg = { server: c.server, username: c.username, password: c.password };
+        if (c.tmdb) ls('tmdb', c.tmdb);
         msg.className = 'msg'; msg.textContent = 'Vérification…';
         return Xt.auth().then(function (r) {
           var ui = r && r.user_info;
@@ -336,18 +350,35 @@
     return luna('getConfig').then(function (r) {
       var c = r && r.config;
       if (c && c.server && c.username) {
+        if (c.tmdb) ls('tmdb', c.tmdb);
         var cur = Xt.cfg;
         if (!cur || cur.server !== c.server || cur.username !== c.username || cur.password !== c.password) Xt.save({ server: c.server, username: c.username, password: c.password });
         return null;
       }
-      if (Xt.cfg) { luna('setConfig', { config: Xt.cfg }); return null; }
+      if (Xt.cfg) { luna('setConfig', { config: Object.assign({}, Xt.cfg, ls('tmdb') ? { tmdb: ls('tmdb') } : {}) }); return null; }
       return login(opts);
+    });
+  }
+
+  function tmdbPrompt() {
+    var inp = el('input', { f: 1, type: 'text', placeholder: 'Clé API TMDB (v3)', value: ls('tmdb') || '', autocapitalize: 'off', autocomplete: 'off' });
+    var ok = el('button', { f: 1, class: 'btn primary', text: 'Enregistrer' });
+    var box = el('div', { class: 'menu' }, [el('div', { class: 'msg', text: 'Clé gratuite sur themoviedb.org (Paramètres → API). Laisse vide pour désactiver.' }), inp, ok]);
+    var layer = el('div', { class: 'layer dim' }, [box]);
+    document.body.appendChild(layer); Nav.push(layer); Nav.first();
+    function close() { off(); Nav.pop(); layer.remove(); }
+    var off = onKey(function (ev, k) { if (k === KEY.BACK || k === KEY.ESC) { close(); return true; } return false; });
+    ok.addEventListener('click', function () {
+      var v = inp.value.replace(/[^A-Za-z0-9]/g, ''); ls('tmdb', v || null);
+      if (Xt.cfg) luna('setConfig', { config: Object.assign({}, Xt.cfg, v ? { tmdb: v } : {}) });
+      close(); toast(v ? 'Clé TMDB enregistrée' : 'TMDB désactivé');
     });
   }
 
   /* ---------- Menu réglages (touche rouge) ---------- */
   function settings(extra) {
     var items = (extra || []).concat([
+      { label: 'Clé TMDB (descriptions, acteurs, trailers)…', run: tmdbPrompt },
       { label: 'Rafraîchir le catalogue', run: function () { DB.clear().then(function () { location.reload(); }); } },
       { label: 'Changer de compte (toutes les apps IPTV)', run: function () { luna('clearConfig').then(function () { return Xt.clearAccount(); }).then(function () { location.reload(); }); } },
       { label: 'Fermer', run: function () {} }
@@ -373,5 +404,5 @@
 
   window.IPTV = { KEY: KEY, $: $, el: el, sleep: sleep, b64: b64, ls: ls, DB: DB, Xt: Xt, DAY: DAY, Nav: Nav,
     onKey: onKey, setBack: setBack, exitApp: exitApp, toast: toast, Player: Player, login: login,
-    ensureLogin: ensureLogin, luna: luna, settings: settings, fmtTime: fmtTime, norm: norm, release: release };
+    ensureLogin: ensureLogin, luna: luna, lunaUri: lunaUri, settings: settings, fmtTime: fmtTime, norm: norm, release: release };
 })();

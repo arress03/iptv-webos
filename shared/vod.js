@@ -44,15 +44,83 @@
     function close() { off(); Nav.pop(); layer.remove(); onDone(); }
   }
 
-  /* ---------- Bande-annonce (YouTube, n'utilise aucune connexion du fournisseur) ---------- */
+  /* ---------- Bande-annonce : ouvre l'app YouTube de la TV (n'utilise aucune connexion du fournisseur) ---------- */
   function trailer(ytId) {
-    var fr = el('iframe', { src: 'https://www.youtube.com/embed/' + encodeURIComponent(ytId) + '?autoplay=1&rel=0&controls=1&hl=fr&cc_lang_pref=fr',
-      allow: 'autoplay; encrypted-media; fullscreen', style: 'position:absolute;inset:0;width:100%;height:100%;border:0' });
-    var hint = el('div', { class: 'msg', style: 'position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:2', text: 'Retour pour fermer' });
-    var layer = el('div', { class: 'layer', style: 'background:#000;z-index:60' }, [fr, hint]);
-    document.body.appendChild(layer); Nav.push(layer);
-    var off = I.onKey(function (ev, k) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { off(); Nav.pop(); layer.remove(); return true; } return false; });
-    setTimeout(function () { hint.remove(); }, 4000);
+    if (!/^[A-Za-z0-9_-]{11}$/.test(ytId || '')) { I.toast('Bande-annonce indisponible.', 3000); return; }
+    var target = 'https://www.youtube.com/tv?v=' + ytId;
+    I.toast('Ouverture de YouTube…', 3000);
+    I.lunaUri('luna://com.webos.applicationManager/launch', { id: 'youtube.leanback.v4', params: { contentTarget: target } }).then(function (r) {
+      if (r && r.returnValue) return;
+      // repli : lancement via le service root de Homebrew Channel
+      var cmd = "luna-send -n 1 luna://com.webos.applicationManager/launch '" + JSON.stringify({ id: 'youtube.leanback.v4', params: { contentTarget: target } }) + "'";
+      return I.lunaUri('luna://org.webosbrew.hbchannel.service/exec', { command: cmd }).then(function (r2) {
+        if (!(r2 && r2.returnValue)) I.toast('Impossible d’ouvrir YouTube depuis l’app (' + ((r && r.errorText) || 'refusé') + ').', 5000);
+      });
+    });
+  }
+
+  /* ---------- Métadonnées enrichies : TMDB (clé optionnelle) ou Wikipédia (photos, titre exact uniquement) ---------- */
+  var Meta = {
+    ytId: function (v) {
+      if (!v) return null; v = String(v).trim();
+      var m = v.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/); if (m) return m[1];
+      return /^[A-Za-z0-9_-]{11}$/.test(v) ? v : null;
+    },
+    names: function (str) {
+      var seen = {};
+      return String(str || '').split(/,|\/|;/).map(function (x) { return x.trim(); }).filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; }).slice(0, 10);
+    },
+    wiki: function (names) {
+      var out = {};
+      function q(host, list) {
+        if (!list.length) return Promise.resolve();
+        var u = 'https://' + host + '/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=240&titles=' + encodeURIComponent(list.join('|'));
+        return fetch(u).then(function (r) { return r.json(); }).then(function (j) {
+          var qr = j.query || {}, norm = {}, red = {};
+          (qr.normalized || []).forEach(function (n) { norm[n.to] = n.from; });
+          (qr.redirects || []).forEach(function (r) { red[r.to] = r.from; });
+          Object.keys(qr.pages || {}).forEach(function (id) {
+            var p = qr.pages[id]; if (!p.thumbnail) return;
+            var from = red[p.title] || p.title; from = norm[from] || from; out[from] = p.thumbnail.source;
+          });
+        }).catch(function () {});
+      }
+      return q('fr.wikipedia.org', names).then(function () { return q('en.wikipedia.org', names.filter(function (n) { return !out[n]; })); }).then(function () { return out; });
+    },
+    // o : { kind:'movie'|'tv', tmdbId, castStr }  → { overview, cast:[{name,role,photo}], trailer }
+    enrich: function (o) {
+      var self = this, key = I.ls('tmdb') || null, ck = 'meta|' + o.kind + '|' + (o.tmdbId || o.castStr) + '|' + (key ? 1 : 0);
+      return I.DB.get(ck).then(function (hit) {
+        if (hit && Date.now() - hit.t < 7 * 86400000) return hit.v;
+        var p = Promise.resolve(null);
+        if (key && o.tmdbId) {
+          p = fetch('https://api.themoviedb.org/3/' + o.kind + '/' + encodeURIComponent(o.tmdbId) + '?api_key=' + encodeURIComponent(key) + '&language=fr-FR&include_video_language=fr,en&append_to_response=credits,videos')
+            .then(function (r) { if (!r.ok) throw new Error('tmdb'); return r.json(); }).then(function (j) {
+              var cast = ((j.credits && j.credits.cast) || []).slice(0, 12).map(function (c) { return { name: c.name, role: c.character, photo: c.profile_path ? 'https://image.tmdb.org/t/p/w185' + c.profile_path : null }; });
+              var vids = ((j.videos && j.videos.results) || []).filter(function (v) { return v.site === 'YouTube'; });
+              var tr = vids.filter(function (v) { return v.type === 'Trailer' && v.iso_639_1 === 'fr'; })[0] || vids.filter(function (v) { return v.type === 'Trailer'; })[0] || vids[0];
+              return { overview: j.overview || '', cast: cast, trailer: tr ? tr.key : null };
+            }).catch(function () { return null; });
+        }
+        return p.then(function (v) {
+          v = v || { overview: '', cast: [], trailer: null };
+          if (v.cast.length) return v;
+          var names = self.names(o.castStr);
+          if (!names.length) return v;
+          return self.wiki(names).then(function (m) { v.cast = names.map(function (n) { return { name: n, photo: m[n] || null }; }); return v; });
+        }).then(function (v) { I.DB.set(ck, { t: Date.now(), v: v }); return v; });
+      });
+    }
+  };
+
+  // Rangée d'acteurs : photo ronde (ou initiale si pas de photo), nom, rôle.
+  function castView(box, cast) {
+    box.innerHTML = '';
+    (cast || []).forEach(function (c) {
+      var ph = el('div', { class: 'av', text: (c.name || '?').charAt(0) });
+      if (c.photo) { var im = el('img', { alt: '', loading: 'lazy' }); im.onload = function () { ph.textContent = ''; }; im.onerror = function () { im.remove(); }; im.src = c.photo; ph.appendChild(im); }
+      box.appendChild(el('div', { class: 'cs' }, [ph, el('div', { class: 'cn', text: c.name }), c.role ? el('div', { class: 'cr', text: c.role }) : null]));
+    });
   }
 
   /* ---------- Fond flou plein écran (fiche) ---------- */
@@ -179,7 +247,16 @@
     search.addEventListener('input', function () { clearTimeout(st); st = setTimeout(function () { curCat = 'all'; setCats(); build(); }, 350); });
 
     I.onKey(function (ev, k) {
-      if (k === KEY.RED && Nav.layer === root) { I.settings(); return true; }
+      if (Nav.layer !== root) return false;
+      if (k === KEY.RED) { I.settings(); return true; }
+      var f = document.activeElement, cl = (f && f.classList) || { contains: function () { return false; } };
+      var inGrid = cl.contains('card'), inCats = cl.contains('cat'), inSearch = f === search;
+      var first = grid.querySelector('.card');
+      if (k === KEY.LEFT && inGrid && first && f.offsetLeft === first.offsetLeft) { Nav.focus(cats.querySelector('.cat.sel') || cats.firstChild); return true; }
+      if (k === KEY.LEFT && inSearch && search.selectionStart === 0) { Nav.focus(cats.querySelector('.cat.sel') || cats.firstChild); return true; }
+      if (k === KEY.RIGHT && inCats) { Nav.focus(first); return true; }
+      if (k === KEY.UP && inGrid && first && f.offsetTop === first.offsetTop) { Nav.focus(search); return true; }
+      if (k === KEY.DOWN && inSearch) { Nav.focus(first || cats.firstChild); return true; }
       return false;
     });
 
@@ -196,5 +273,5 @@
     });
   }
 
-  window.VOD = { browse: browse, play: playVod, Prog: Prog, trailer: trailer, backdrop: backdrop };
+  window.VOD = { browse: browse, play: playVod, Prog: Prog, trailer: trailer, backdrop: backdrop, Meta: Meta, castView: castView };
 })();

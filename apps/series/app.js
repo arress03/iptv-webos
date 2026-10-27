@@ -7,12 +7,13 @@
     var layer = el('div', { class: 'detail' });
     var poster = el('div', { class: 'poster' });
     if (it.img) poster.style.backgroundImage = 'url("' + it.img.replace(/"/g, '%22') + '")';
-    var meta = el('div', { class: 'badges' }), plot = el('div', { class: 'plot', style: 'max-height:110px' }), trailerBtn = el('button', { f: 1, class: 'btn hidden', text: '🎬 Bande-annonce' });
+    var meta = el('div', { class: 'badges' }), plot = el('div', { class: 'plot', style: 'max-height:130px;font-size:22px' }), trailerBtn = el('button', { f: 1, class: 'btn hidden', text: '🎬 Bande-annonce' }), castBox = el('div', { class: 'casts' }), trailerId = null;
     var seasonsBox = el('div', { class: 'seasons' }), eps = el('div', { class: 'eps' });
     layer.appendChild(poster);
-    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, el('div', { class: 'row' }, [trailerBtn]), seasonsBox, eps]));
+    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, castBox, el('div', { class: 'row' }, [trailerBtn]), seasonsBox, eps]));
     document.body.appendChild(layer); Nav.push(layer);
     var closed = false, data = null, curSeason = null, order = [];
+    function setTrailer(id) { trailerId = id; trailerBtn.classList.remove('hidden'); trailerBtn.onclick = function () { VOD.trailer(id); }; }
     function close() { if (closed) return; closed = true; off(); Nav.pop(); layer.remove(); done && done(); }
     var off = I.onKey(function (ev, k) { if ((k === I.KEY.BACK || k === I.KEY.ESC || k === I.KEY.BKSP) && Nav.layer === layer) { close(); return true; } return false; });
 
@@ -22,11 +23,18 @@
       var bits = [info.releaseDate && String(info.releaseDate).slice(0, 4), info.genre].filter(Boolean);
       bits.forEach(function (b) { meta.appendChild(el('span', { text: b })); });
       if (parseFloat(info.rating) > 0) meta.appendChild(el('span', { class: 'star', text: '★ ' + parseFloat(info.rating).toFixed(1) }));
-      plot.textContent = info.plot || '';
+      plot.textContent = info.plot || info.description || '';
+      VOD.castView(castBox, VOD.Meta.names(info.cast).slice(0, 8).map(function (n) { return { name: n }; }));
+      VOD.Meta.enrich({ kind: 'tv', tmdbId: info.tmdb || info.tmdb_id, castStr: info.cast }).then(function (m) {
+        if (closed) return;
+        if (m.overview && m.overview.length > plot.textContent.length) plot.textContent = m.overview;
+        if (m.cast && m.cast.length) VOD.castView(castBox, m.cast.slice(0, 8));
+        if (!trailerId && m.trailer) setTrailer(m.trailer);
+      });
       var bd = Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path;
       VOD.backdrop(layer, bd || info.cover || it.img);
       if (info.cover && !it.img) poster.style.backgroundImage = 'url("' + info.cover + '")';
-      if (info.youtube_trailer) { trailerBtn.classList.remove('hidden'); trailerBtn.onclick = function () { VOD.trailer(info.youtube_trailer); }; }
+      var yt = VOD.Meta.ytId(info.youtube_trailer); if (yt) setTrailer(yt);
       var ep = data.episodes || {};
       var nums = Object.keys(ep).sort(function (a, b) { return a - b; });
       if (!nums.length) { plot.textContent = 'Aucun épisode disponible.'; return; }

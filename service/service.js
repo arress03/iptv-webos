@@ -69,12 +69,13 @@ button{margin-top:22px;width:100%;background:#4f8cff;color:#fff;border:0;border-
 <label>Serveur ou URL M3U</label><input id="srv" placeholder="http://serveur:port" autocapitalize="off" autocomplete="off">
 <label>Utilisateur</label><input id="usr" autocapitalize="off" autocomplete="off">
 <label>Mot de passe</label><input id="pwd" autocapitalize="off" autocomplete="off">
+<label>Clé API TMDB (optionnel : descriptions longues, photos des acteurs, bandes-annonces)</label><input id="tm" autocapitalize="off" autocomplete="off">
 <button id="go">Envoyer à la TV</button><div id="m"></div></main><script>
 var $=function(i){return document.getElementById(i)};
 $('srv').addEventListener('change',function(){try{var s=$('srv').value.trim();if(!/^https?:/i.test(s))s='http://'+s;var u=new URL(s);
 $('srv').value=u.protocol+'//'+u.host;if(u.searchParams.get('username'))$('usr').value=u.searchParams.get('username');if(u.searchParams.get('password'))$('pwd').value=u.searchParams.get('password')}catch(e){}});
 $('go').onclick=function(){$('srv').dispatchEvent(new Event('change'));var m=$('m');m.className='';m.textContent='Vérification…';
-fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:$('code').value.trim(),server:$('srv').value.trim(),username:$('usr').value.trim(),password:$('pwd').value.trim()})})
+fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:$('code').value.trim(),server:$('srv').value.trim(),username:$('usr').value.trim(),password:$('pwd').value.trim(),tmdb:$('tm').value.trim()})})
 .then(function(r){return r.json()}).then(function(j){if(j.ok){m.className='ok';m.textContent='✓ Connecté'+(j.max?' ('+j.max+' écrans max)':'')+'. Tu peux regarder la TV.'}else{m.className='err';m.textContent=j.error||'Erreur'}})
 .catch(function(){m.className='err';m.textContent='TV injoignable.'})};
 </script></body></html>`;
@@ -107,6 +108,8 @@ function startPair(cb) {
         let server = String(j.server || '').trim(); if (!/^https?:\/\//i.test(server)) server = 'http://' + server;
         try { server = new URL(server).origin; } catch (e) { return send({ ok: false, error: 'Adresse du serveur invalide.' }); }
         const c = { server, username: String(j.username || '').trim(), password: String(j.password || '').trim() };
+        const tm = String(j.tmdb || '').trim().replace(/[^A-Za-z0-9]/g, ''); const prev = readCfg();
+        if (tm) c.tmdb = tm; else if (prev && prev.tmdb) c.tmdb = prev.tmdb;
         if (!c.username || !c.password) return send({ ok: false, error: 'Utilisateur et mot de passe requis.' });
         checkProvider(c).then(r => {
           if (!r.ok) return send(r);
@@ -146,7 +149,9 @@ service.register('getConfig', msg => msg.respond({ returnValue: true, config: re
 service.register('setConfig', msg => {
   const c = msg.payload && msg.payload.config;
   if (!c || !c.server || !c.username) return msg.respond({ returnValue: false, errorText: 'config invalide' });
-  msg.respond({ returnValue: true, saved: writeCfg({ server: c.server, username: c.username, password: c.password || '' }) });
+  const o = { server: c.server, username: c.username, password: c.password || '' };
+  if (c.tmdb) o.tmdb = String(c.tmdb).replace(/[^A-Za-z0-9]/g, '');
+  msg.respond({ returnValue: true, saved: writeCfg(o) });
 });
 service.register('clearConfig', msg => { clearCfg(); msg.respond({ returnValue: true }); });
 
