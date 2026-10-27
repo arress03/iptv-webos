@@ -1,0 +1,16 @@
+{
+  "id": "com.theo.iptv.live",
+  "version": "1.0.0",
+  "vendor": "Theo",
+  "type": "web",
+  "main": "index.html",
+  "title": "Live TV",
+  "appDescription": "Lecteur TV en direct Xtream, faible latence, une seule connexion.",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#0b0d12",
+  "bgColor": "#0b0d12",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}
