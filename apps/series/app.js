@@ -7,10 +7,10 @@
     var layer = el('div', { class: 'detail' });
     var poster = el('div', { class: 'poster' });
     if (it.img) poster.style.backgroundImage = 'url("' + it.img.replace(/"/g, '%22') + '")';
-    var meta = el('div', { class: 'meta', text: 'Chargement…' }), plot = el('div', { class: 'plot', style: 'max-height:110px' });
+    var meta = el('div', { class: 'badges' }), plot = el('div', { class: 'plot', style: 'max-height:110px' }), trailerBtn = el('button', { f: 1, class: 'btn hidden', text: '🎬 Bande-annonce' });
     var seasonsBox = el('div', { class: 'seasons' }), eps = el('div', { class: 'eps' });
     layer.appendChild(poster);
-    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, seasonsBox, eps]));
+    layer.appendChild(el('div', { class: 'info' }, [el('h1', { text: it.name }), meta, plot, el('div', { class: 'row' }, [trailerBtn]), seasonsBox, eps]));
     document.body.appendChild(layer); Nav.push(layer);
     var closed = false, data = null, curSeason = null, order = [];
     function close() { if (closed) return; closed = true; off(); Nav.pop(); layer.remove(); done && done(); }
@@ -19,12 +19,17 @@
     Xt.call('get_series_info', { series_id: it.id }, I.DAY).then(function (r) {
       data = r || {};
       var info = data.info || {};
-      var bits = [info.releaseDate && String(info.releaseDate).slice(0, 4), info.genre, info.rating && ('★ ' + info.rating)].filter(Boolean);
-      meta.textContent = bits.join('  ·  '); plot.textContent = info.plot || '';
+      var bits = [info.releaseDate && String(info.releaseDate).slice(0, 4), info.genre].filter(Boolean);
+      bits.forEach(function (b) { meta.appendChild(el('span', { text: b })); });
+      if (parseFloat(info.rating) > 0) meta.appendChild(el('span', { class: 'star', text: '★ ' + parseFloat(info.rating).toFixed(1) }));
+      plot.textContent = info.plot || '';
+      var bd = Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path;
+      VOD.backdrop(layer, bd || info.cover || it.img);
       if (info.cover && !it.img) poster.style.backgroundImage = 'url("' + info.cover + '")';
+      if (info.youtube_trailer) { trailerBtn.classList.remove('hidden'); trailerBtn.onclick = function () { VOD.trailer(info.youtube_trailer); }; }
       var ep = data.episodes || {};
       var nums = Object.keys(ep).sort(function (a, b) { return a - b; });
-      if (!nums.length) { meta.textContent = 'Aucun épisode disponible.'; return; }
+      if (!nums.length) { plot.textContent = 'Aucun épisode disponible.'; return; }
       // liste à plat pour enchaîner les épisodes
       order = [];
       nums.forEach(function (s) { ep[s].slice().sort(function (a, b) { return a.episode_num - b.episode_num; }).forEach(function (e) { e._s = s; order.push(e); }); });
@@ -39,7 +44,7 @@
       renderEps(last);
       var target = last && eps.querySelector('[data-id="' + last.id + '"]');
       Nav.focus(target || eps.firstChild || seasonsBox.firstChild);
-    }).catch(function (e) { meta.textContent = 'Erreur de chargement (' + (e && e.message) + ')'; });
+    }).catch(function (e) { plot.textContent = 'Erreur de chargement (' + (e && e.message) + ')'; });
 
     function lastSeen() {
       var best = null, bt = 0;
@@ -51,7 +56,8 @@
       (data.episodes[curSeason] || []).slice().sort(function (a, b) { return a.episode_num - b.episode_num; }).forEach(function (e) {
         var p = VOD.Prog.get('e:' + e.id);
         var right = p ? (p.d ? Math.round(100 * p.p / p.d) + ' %' : '') : ((e.info && e.info.duration) || '');
-        var row = el('div', { f: 1, class: 'ep', 'data-id': e.id }, [el('div', { class: 't', text: e.episode_num + '. ' + (e.title || 'Épisode ' + e.episode_num) }), el('div', { class: 's', text: right })]);
+        var th = el('div', { class: 'th' }); if (e.info && e.info.movie_image) th.style.backgroundImage = 'url("' + e.info.movie_image + '")';
+        var row = el('div', { f: 1, class: 'ep', 'data-id': e.id }, [th, el('div', { class: 't', text: e.episode_num + '. ' + (e.title || 'Épisode ' + e.episode_num) }), el('div', { class: 's', text: right })]);
         row.addEventListener('click', function () { play(e); });
         eps.appendChild(row);
       });
@@ -77,7 +83,7 @@
     VOD.browse({
       title: 'Séries', kind: 'series',
       catAction: 'get_series_categories', listAction: 'get_series',
-      map: function (r) { return { id: r.series_id, name: r.name || '', img: r.cover || '', cat: String(r.category_id) }; },
+      map: function (r) { return { id: r.series_id, name: r.name || '', img: r.cover || '', cat: String(r.category_id), rating: r.rating }; },
       progKey: function () { return null; },
       open: open
     });

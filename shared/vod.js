@@ -17,6 +17,51 @@
     }
   };
 
+  /* ---------- Pistes audio / sous-titres ---------- */
+  function trackMenu(video, kind, onDone) {
+    var list = kind === 'audio' ? video.audioTracks : video.textTracks, rows = [];
+    if (list) for (var i = 0; i < list.length; i++) {
+      var t = list[i]; if (kind === 'text' && t.kind && !/subtitles|captions/.test(t.kind)) continue;
+      rows.push({ i: i, label: (t.label || t.language || ('Piste ' + (i + 1))) + (t.language && t.label ? ' (' + t.language + ')' : ''),
+        on: kind === 'audio' ? !!t.enabled : t.mode === 'showing' });
+    }
+    if (!rows.length) { I.toast(kind === 'audio' ? 'Pas d’autre piste audio dans ce flux.' : 'Pas de sous-titres dans ce flux.', 3500); onDone(); return; }
+    var box = el('div', { class: 'menu' }, [el('div', { class: 'msg', text: kind === 'audio' ? 'Langue audio' : 'Sous-titres' })]);
+    function pick(r) {
+      for (var j = 0; j < list.length; j++) {
+        if (kind === 'audio') list[j].enabled = (j === r.i); else if (list[j].kind !== 'metadata') list[j].mode = (j === r.i ? 'showing' : 'disabled');
+      }
+      close();
+    }
+    if (kind === 'text') rows.unshift({ i: -1, label: 'Désactivés', on: !rows.some(function (r) { return r.on; }) });
+    rows.forEach(function (r) {
+      var b = el('button', { f: 1, class: 'btn' + (r.on ? ' primary' : ''), text: (r.on ? '✓ ' : '') + r.label });
+      b.addEventListener('click', function () { pick(r); }); box.appendChild(b);
+    });
+    var layer = el('div', { class: 'layer dim' }, [box]);
+    document.body.appendChild(layer); Nav.push(layer); Nav.first();
+    var off = I.onKey(function (ev, k) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { close(); return true; } return false; });
+    function close() { off(); Nav.pop(); layer.remove(); onDone(); }
+  }
+
+  /* ---------- Bande-annonce (YouTube, n'utilise aucune connexion du fournisseur) ---------- */
+  function trailer(ytId) {
+    var fr = el('iframe', { src: 'https://www.youtube.com/embed/' + encodeURIComponent(ytId) + '?autoplay=1&rel=0&controls=1&hl=fr&cc_lang_pref=fr',
+      allow: 'autoplay; encrypted-media; fullscreen', style: 'position:absolute;inset:0;width:100%;height:100%;border:0' });
+    var hint = el('div', { class: 'msg', style: 'position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:2', text: 'Retour pour fermer' });
+    var layer = el('div', { class: 'layer', style: 'background:#000;z-index:60' }, [fr, hint]);
+    document.body.appendChild(layer); Nav.push(layer);
+    var off = I.onKey(function (ev, k) { if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { off(); Nav.pop(); layer.remove(); return true; } return false; });
+    setTimeout(function () { hint.remove(); }, 4000);
+  }
+
+  /* ---------- Fond flou plein écran (fiche) ---------- */
+  function backdrop(layer, url) {
+    if (!url) return;
+    var bg = el('div', { class: 'bd' }); bg.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+    layer.insertBefore(bg, layer.firstChild);
+  }
+
   /* ---------- Lecteur VOD ---------- */
   // opts : { url, key, title, sub, meta, onEnded, onClose }
   function playVod(opts) {
@@ -24,7 +69,7 @@
     var title = el('div', { class: 'title', text: opts.title || '' });
     var sub = el('div', { class: 'sub', text: opts.sub || '' });
     var bar = el('i'), cur = el('span', { text: '0:00' }), dur = el('span', { text: '0:00' });
-    var osd = el('div', { class: 'osd' }, [title, sub, el('div', { class: 'prog' }, [bar]), el('div', { class: 'tm' }, [cur, dur])]);
+    var osd = el('div', { class: 'osd' }, [title, sub, el('div', { class: 'keys', text: '◀ ▶ ±10 s   ▲ ▼ ±1 min   Jaune/Vert : langue audio   Bleu/Rouge : sous-titres' }), el('div', { class: 'prog' }, [bar]), el('div', { class: 'tm' }, [cur, dur])]);
     var layer = el('div', { class: 'layer dim', style: 'background:transparent' });
     layer.setAttribute('tabindex', '-1');
     document.body.appendChild(layer); layer.appendChild(osd);
@@ -46,6 +91,7 @@
       off(); Player.stop(); Nav.pop(); layer.remove();
       if (ended && opts.onEnded) opts.onEnded(); else if (opts.onClose) opts.onClose();
     }
+    function tracks(kind) { video.pause(); trackMenu(video, kind, function () { video.play(); show(); }); }
     function onEnd() { Prog.set(opts.key, 1, 1); close(true); }
     var off = I.onKey(function (ev, k) {
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP || k === KEY.STOP) { close(false); return true; }
@@ -54,6 +100,8 @@
       if (k === KEY.UP) { seek(60); return true; }
       if (k === KEY.DOWN) { seek(-60); return true; }
       if (k === KEY.ENTER || k === KEY.PLAY || k === KEY.PAUSE) { toggle(); return true; }
+      if (k === KEY.YELLOW || k === KEY.GREEN) { tracks('audio'); return true; }
+      if (k === KEY.BLUE || k === KEY.RED) { tracks('text'); return true; }
       return true; // la lecture capte toutes les touches
     });
     video.addEventListener('timeupdate', refresh); video.addEventListener('ended', onEnd); video.addEventListener('pause', show);
@@ -89,12 +137,17 @@
       });
     }
     function card(it) {
-      var ph = el('div', { class: 'ph', text: it.img ? '' : it.name });
+      var ph = el('div', { class: 'ph' });
+      var fb = el('div', { class: 'fb', text: it.name });
+      ph.appendChild(fb);
       if (it.img) {
-        ph.style.backgroundImage = 'url("' + it.img.replace(/"/g, '%22') + '")';
-        var probe = new Image(); probe.onerror = function () { ph.style.backgroundImage = ''; ph.textContent = it.name; }; probe.src = it.img;
+        var im = el('img', { loading: 'lazy', decoding: 'async', alt: '' });
+        im.onload = function () { fb.remove(); };
+        im.onerror = function () { im.remove(); };
+        im.src = it.img; ph.appendChild(im);
       }
       var c = el('div', { f: 1, class: 'card' }, [ph, el('div', { class: 'nm', text: it.name })]);
+      if (it.rating && parseFloat(it.rating) > 0) c.appendChild(el('div', { class: 'rt', text: '★ ' + parseFloat(it.rating).toFixed(1) }));
       var pr = cfg.progKey && Prog.get(cfg.progKey(it));
       if (pr && pr.d) { var b = el('div', { class: 'bar' }); b.style.width = Math.min(100, 100 * pr.p / pr.d) + '%'; c.appendChild(b); }
       c.addEventListener('click', function () { cfg.open(it, refreshBars); });
@@ -143,5 +196,5 @@
     });
   }
 
-  window.VOD = { browse: browse, play: playVod, Prog: Prog };
+  window.VOD = { browse: browse, play: playVod, Prog: Prog, trailer: trailer, backdrop: backdrop };
 })();
