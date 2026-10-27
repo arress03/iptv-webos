@@ -1,4 +1,4 @@
-# IPTV webOS — Live TV · Films · Séries
+# IPTV webOS — IPTVLive · IPTVFilms · IPTVSeries
 
 Trois apps webOS indépendantes et épurées pour un abonnement **Xtream Codes**, installables via **Homebrew Channel**.
 Aucune pub, aucun tracker, aucun identifiant dans le dépôt : tu les saisis sur la TV (une fois par app) et ils restent sur la TV.
@@ -8,6 +8,12 @@ Aucune pub, aucun tracker, aucun identifiant dans le dépôt : tu les saisis sur
 | **Live TV** | Chaînes en direct, zapping rapide, favoris, EPG (maintenant / ensuite), reprise de la dernière chaîne |
 | **Films** | Catalogue par catégories, recherche, reprise de lecture |
 | **Séries** | Saisons/épisodes, reprise, épisode suivant automatique |
+
+## Saisie des identifiants depuis le téléphone
+Au premier lancement, l'app affiche l'adresse de la TV sur ton réseau (ex. `http://192.168.1.42:8781`) et un code à 6 chiffres.
+Ouvre l'adresse sur ton téléphone (même Wi-Fi), saisis le code, ton serveur/utilisateur/mot de passe (ou colle l'URL M3U) : la TV vérifie
+les identifiants auprès du fournisseur puis les enregistre. **Une seule saisie pour les 3 apps** (fichier partagé sur la TV).
+La page reste ouverte 10 minutes max ; 5 mauvais codes la ferment. La saisie à la télécommande reste disponible sous l'adresse.
 
 ## Connexions simultanées (anti-ban)
 - Chaque app n'ouvre **qu'un seul flux à la fois**, et les appels API sont mis en file (1 à la fois, 150 ms d'écart).

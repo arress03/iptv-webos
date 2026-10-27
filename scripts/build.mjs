@@ -14,7 +14,14 @@ for (const dir of ['livetv', 'films', 'series']) {
   for (const f of shared[dir]) fs.copyFileSync(path.join(root, 'shared', f), path.join(dst, f));
   if (dir === 'livetv') fs.copyFileSync(path.join(root, 'node_modules/hls.js/dist/hls.min.js'), path.join(dst, 'hls.min.js'));
   const info = JSON.parse(fs.readFileSync(path.join(src, 'appinfo.json'), 'utf8'));
-  execFileSync(ares, ['--no-minify', '-o', out, dst], { stdio: 'inherit' });
+  // Service de saisie par téléphone (un par app : son identifiant commence par celui de l'app)
+  const sid = info.id + '.service', sdir = path.join(tmp, dir + '-service');
+  fs.mkdirSync(sdir, { recursive: true });
+  fs.copyFileSync(path.join(root, 'service', 'service.js'), path.join(sdir, 'service.js'));
+  fs.writeFileSync(path.join(sdir, 'package.json'), JSON.stringify({ name: sid, version: info.version, description: 'Saisie des identifiants IPTV', main: 'service.js' }, null, 2));
+  const cmds = ['startPair', 'pairStatus', 'stopPair', 'getConfig', 'setConfig', 'clearConfig'].map(n => ({ name: n, public: true }));
+  fs.writeFileSync(path.join(sdir, 'services.json'), JSON.stringify({ id: sid, description: 'Saisie des identifiants IPTV', services: [{ name: sid, description: 'Saisie des identifiants IPTV', commands: cmds }] }, null, 2));
+  execFileSync(ares, ['--no-minify', '-o', out, dst, sdir], { stdio: 'inherit' });
   const ipkName = `${info.id}_${info.version}_all.ipk`, ipk = path.join(out, ipkName);
   if (!fs.existsSync(ipk)) throw new Error('IPK introuvable : ' + ipkName);
   const buf = fs.readFileSync(ipk), sha = crypto.createHash('sha256').update(buf).digest('hex');

@@ -257,6 +257,21 @@
   window.addEventListener('beforeunload', release);
   document.addEventListener('webOSRelaunch', release);
 
+
+  /* ---------- Pont vers le service de la TV (saisie par téléphone, identifiants partagés) ---------- */
+  var SERVICE = document.documentElement.getAttribute('data-service');
+  function luna(method, params) {
+    return new Promise(function (resolve) {
+      try {
+        if (!SERVICE || typeof PalmServiceBridge === 'undefined') return resolve({ returnValue: false, errorText: 'no-bridge' });
+        var b = new PalmServiceBridge(), done = false;
+        var t = setTimeout(function () { if (!done) { done = true; resolve({ returnValue: false, errorText: 'timeout' }); } }, 6000);
+        b.onservicecallback = function (m) { if (done) return; done = true; clearTimeout(t); var r; try { r = JSON.parse(m); } catch (e) { r = { returnValue: false, errorText: 'parse' }; } resolve(r); };
+        b.call('luna://' + SERVICE + '/' + method, JSON.stringify(params || {}));
+      } catch (e) { resolve({ returnValue: false, errorText: String(e) }); }
+    });
+  }
+
   /* ---------- Écran de connexion ---------- */
   function login(opts) {
     return new Promise(function (resolve) {
@@ -266,9 +281,34 @@
       var inUser = el('input', { f: 1, type: 'text', placeholder: 'Utilisateur', value: cfg.username || '', autocapitalize: 'off', autocomplete: 'off' });
       var inPass = el('input', { f: 1, type: 'text', placeholder: 'Mot de passe', value: cfg.password || '', autocapitalize: 'off', autocomplete: 'off' });
       var btn = el('button', { f: 1, class: 'btn primary', text: 'Se connecter' });
-      var box = el('div', { class: 'login' }, [el('h1', { text: opts && opts.title || 'IPTV' }), msg, inSrv, inUser, inPass, btn]);
+      var pairBox = el('div', { class: 'pair hidden' });
+      var box = el('div', { class: 'login' }, [el('h1', { text: opts && opts.title || 'IPTV' }), pairBox, msg, inSrv, inUser, inPass, btn]);
       var layer = el('div', { class: 'layer' }, [box]);
       document.body.appendChild(layer); Nav.push(layer); Nav.first();
+      var poll = null, finished = false;
+      function finish(ui) { if (finished) return; finished = true; clearInterval(poll); luna('stopPair'); Nav.pop(); layer.remove(); resolve(ui); }
+      function useConfig(c) {
+        Xt.cfg = { server: c.server, username: c.username, password: c.password };
+        msg.className = 'msg'; msg.textContent = 'Vérification…';
+        return Xt.auth().then(function (r) {
+          var ui = r && r.user_info;
+          if (!ui || String(ui.auth) !== '1') { msg.className = 'msg err'; msg.textContent = 'Identifiants refusés par le serveur.'; Xt.cfg = null; return false; }
+          Xt.save(Xt.cfg); finish(ui); return true;
+        }).catch(function () { msg.className = 'msg err'; msg.textContent = 'Serveur injoignable.'; Xt.cfg = null; return false; });
+      }
+      luna('startPair').then(function (r) {
+        if (!r || !r.returnValue) return;   // pas de service : saisie sur la TV uniquement
+        var url = 'http://' + ((r.ips && r.ips[0]) || '<IP de la TV>') + ':' + r.port;
+        pairBox.classList.remove('hidden');
+        pairBox.appendChild(el('div', { class: 'pt', text: 'Depuis ton téléphone (même Wi-Fi) :' }));
+        pairBox.appendChild(el('div', { class: 'pu', text: url }));
+        pairBox.appendChild(el('div', { class: 'pc', text: 'Code : ' + r.code }));
+        var busy = false;
+        poll = setInterval(function () {
+          if (busy || finished) return; busy = true;
+          luna('pairStatus').then(function (s) { if (s && s.config && s.config.server && !finished) return useConfig(s.config); }).then(function () { busy = false; });
+        }, 2000);
+      });
       inSrv.addEventListener('change', function () {
         var p = Xt.parseServer(inSrv.value);
         if (p) { inSrv.value = p.server; if (p.username) inUser.value = p.username; if (p.password) inPass.value = p.password; }
@@ -291,13 +331,25 @@
       });
     });
   }
-  function ensureLogin(opts) { return Xt.cfg ? Promise.resolve(null) : login(opts); }
+  function ensureLogin(opts) {
+    // Identifiants partagés entre les 3 apps IPTV (fichier géré par le service) : une seule saisie.
+    return luna('getConfig').then(function (r) {
+      var c = r && r.config;
+      if (c && c.server && c.username) {
+        var cur = Xt.cfg;
+        if (!cur || cur.server !== c.server || cur.username !== c.username || cur.password !== c.password) Xt.save({ server: c.server, username: c.username, password: c.password });
+        return null;
+      }
+      if (Xt.cfg) { luna('setConfig', { config: Xt.cfg }); return null; }
+      return login(opts);
+    });
+  }
 
   /* ---------- Menu réglages (touche rouge) ---------- */
   function settings(extra) {
     var items = (extra || []).concat([
       { label: 'Rafraîchir le catalogue', run: function () { DB.clear().then(function () { location.reload(); }); } },
-      { label: 'Changer de compte', run: function () { Xt.clearAccount().then(function () { location.reload(); }); } },
+      { label: 'Changer de compte (toutes les apps IPTV)', run: function () { luna('clearConfig').then(function () { return Xt.clearAccount(); }).then(function () { location.reload(); }); } },
       { label: 'Fermer', run: function () {} }
     ]);
     var list = el('div', { class: 'menu' }, items.map(function (it) {
@@ -321,5 +373,5 @@
 
   window.IPTV = { KEY: KEY, $: $, el: el, sleep: sleep, b64: b64, ls: ls, DB: DB, Xt: Xt, DAY: DAY, Nav: Nav,
     onKey: onKey, setBack: setBack, exitApp: exitApp, toast: toast, Player: Player, login: login,
-    ensureLogin: ensureLogin, settings: settings, fmtTime: fmtTime, norm: norm, release: release };
+    ensureLogin: ensureLogin, luna: luna, settings: settings, fmtTime: fmtTime, norm: norm, release: release };
 })();

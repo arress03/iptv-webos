@@ -59,7 +59,7 @@
     }
   }
 
-  I.ensureLogin({ title: 'Films' }).then(function () {
+  I.ensureLogin({ title: 'IPTVFilms' }).then(function () {
     VOD.browse({
       title: 'Films', kind: 'movie',
       catAction: 'get_vod_categories', listAction: 'get_vod_streams',

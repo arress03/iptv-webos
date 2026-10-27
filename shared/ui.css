@@ -91,3 +91,8 @@ body.buffering .spinner { display:block; }
 .ep .t { flex:1; }
 .osd .keys { color:var(--mut); font-size:20px; margin-bottom:14px; }
 .btn.primary:focus, .btn:focus { transform:scale(1.04); }
+
+.pair { background:var(--panel); border-radius:16px; padding:22px 28px; }
+.pair .pt { color:var(--mut); font-size:24px; }
+.pair .pu { font-size:46px; font-weight:700; margin:6px 0; color:var(--acc); }
+.pair .pc { font-size:40px; letter-spacing:.06em; }

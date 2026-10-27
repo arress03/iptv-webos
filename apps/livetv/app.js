@@ -152,7 +152,7 @@
   });
 
   /* ---------- Démarrage ---------- */
-  I.ensureLogin({ title: 'Live TV' }).then(function () {
+  I.ensureLogin({ title: 'IPTVLive' }).then(function () {
     return Promise.all([Xt.call('get_live_categories', {}, I.DAY), Xt.call('get_live_streams', {}, I.DAY)]);
   }).then(function (r) {
     channels = (r[1] || []).map(function (s, i) {
