@@ -42,7 +42,19 @@ def series():
     d.polygon([(230, 265), (230, 360), (320, 312)], fill=(105, 55, 200, 255))
     return im
 
-for d, fn in (('livetv', live), ('films', films), ('series', series)):
+def games():
+    im = base((255, 60, 150), (90, 20, 150)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle((195, 85, 325, 285), 65, fill=W)                                               # micro (tête)
+    for y in (140, 175, 210):
+        d.line((195, y, 325, y), fill=(200, 40, 130, 255), width=8)                                    # grille
+    d.arc((145, 170, 375, 360), 0, 180, fill=W, width=24)                                              # arceau
+    d.line((260, 360, 260, 420), fill=W, width=24)                                                     # pied
+    d.rounded_rectangle((190, 418, 330, 442), 12, fill=W)
+    d.ellipse((390, 110, 430, 150), fill=W); d.line((427, 130, 427, 60), fill=W, width=12)             # note
+    d.line((427, 60, 462, 80), fill=W, width=12)
+    return im
+
+for d, fn in (('livetv', live), ('films', films), ('series', series), ('games', games)):
     im = fn().filter(ImageFilter.SMOOTH)
     for name, size in (('icon.png', 80), ('largeIcon.png', 130)):
         im.resize((size, size), Image.LANCZOS).save(f'apps/{d}/{name}')

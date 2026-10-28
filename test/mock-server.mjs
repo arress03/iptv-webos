@@ -12,6 +12,14 @@ http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'); res.setHeader('Access-Control-Allow-Origin', '*');
   if (u.pathname.startsWith('/img/')) { const n = parseInt(u.pathname.slice(5)); res.setHeader('Content-Type', 'image/svg+xml'); return res.end(svg(n, 400, 600, 'N°' + n)); }
   if (u.pathname.startsWith('/bd/')) { res.setHeader('Content-Type', 'image/svg+xml'); return res.end(svg(parseInt(u.pathname.slice(4)), 1280, 720, '')); }
+  if (u.pathname === '/search' || u.pathname === '/lookup') {
+    res.setHeader('Content-Type', 'application/json');
+    const term = u.searchParams.get('term') || 'Artiste', ent = u.searchParams.get('entity'), hash = [...term].reduce((a, c) => a + c.charCodeAt(0), 0);
+    const art = n => `http://localhost:8089/img/${n}.svg`.replace('.svg', '.svg');
+    if (u.pathname === '/lookup') { const id = u.searchParams.get('id'); return res.end(JSON.stringify({ results: [{ wrapperType: 'collection', collectionId: +id }, ...Array.from({ length: 10 }, (_, i) => ({ wrapperType: 'track', trackNumber: i + 1, trackName: `Titre ${i + 1} de l'album ${id}`, previewUrl: 'http://localhost:8090/t.webm' }))] })); }
+    if (ent === 'album') return res.end(JSON.stringify({ results: Array.from({ length: 14 }, (_, i) => ({ collectionId: hash * 100 + i, collectionName: `Album ${i + 1} ${term}`, artistName: term, trackCount: 12, artworkUrl100: `http://localhost:8089/img/${3000 + ((hash + i) % 90)}.svg`, releaseDate: `${2005 + i}-05-01T07:00:00Z` })) }));
+    return res.end(JSON.stringify({ results: Array.from({ length: 30 }, (_, i) => ({ trackId: hash * 1000 + i, trackName: `Morceau ${i + 1} ${term}`, artistName: term, collectionName: `Album ${i % 5}`, previewUrl: 'http://localhost:8090/t.webm', artworkUrl100: `http://localhost:8089/img/${2000 + ((hash + i) % 300)}.svg`, releaseDate: `${2000 + (i % 24)}-03-01T08:00:00Z` })) }));
+  }
   if (!u.pathname.startsWith('/player_api.php')) { res.statusCode = 404; return res.end(); }
   hits++; const a = u.searchParams.get('action'); console.log(hits, a || 'auth');
   const j = { null: { user_info: { auth: 1, status: 'Active', max_connections: '2' } }, get_live_categories: cats(4), get_live_streams: live,

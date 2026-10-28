@@ -1,4 +1,4 @@
-# IPTV webOS — IPTVLive · IPTVFilms · IPTVSeries
+# IPTV webOS — IPTVLive · IPTVFilms · IPTVSeries · RapGame
 
 Trois apps webOS indépendantes et épurées pour un abonnement **Xtream Codes**, installables via **Homebrew Channel**.
 Aucune pub, aucun tracker, aucun identifiant dans le dépôt : tu les saisis sur la TV (une fois par app) et ils restent sur la TV.
@@ -30,6 +30,9 @@ bandes-annonces, pour les titres où le fournisseur donne l'identifiant TMDB.
 
 ## Latence (Live)
 Flux **MPEG-TS direct** en premier, repli **HLS** automatique si le TS ne démarre pas. Bouton rouge → bascule manuelle TS/HLS.
+
+## RapGame
+Jeux musicaux (rap FR) inspirés de raplay.fr : Blindtest (normal / évolutif / superposé), Qui chante ?, Pochette, Timeline, Album dans l'ordre, Place sans savoir, Mots-mêlés. Implémentation originale ; extraits 30 s, pochettes et dates viennent de l'API iTunes Search (via le service de l'app). Ne nécessite pas de compte IPTV.
 
 ## Installation
 1. Pousse ce dossier sur ton GitHub (dépôt public), puis crée un tag : `git tag v1.0.0 && git push --tags`.

@@ -5,10 +5,10 @@ const repo = process.env.GITHUB_REPOSITORY || 'OWNER/REPO';          // ex. theo
 const branch = process.env.GITHUB_REF_NAME && !process.env.GITHUB_REF_NAME.startsWith('v') ? process.env.GITHUB_REF_NAME : 'main';
 const out = path.join(root, 'dist'); fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 const tmp = path.join(root, '.build'); fs.rmSync(tmp, { recursive: true, force: true });
-const shared = { livetv: ['core.js', 'ui.css'], films: ['core.js', 'ui.css', 'vod.js'], series: ['core.js', 'ui.css', 'vod.js'] };
+const shared = { games: ['core.js', 'ui.css'], livetv: ['core.js', 'ui.css'], films: ['core.js', 'ui.css', 'vod.js'], series: ['core.js', 'ui.css', 'vod.js'] };
 const ares = path.join(root, 'node_modules/.bin/ares-package');
 const packages = [];
-for (const dir of ['livetv', 'films', 'series']) {
+for (const dir of ['livetv', 'films', 'series', 'games']) {
   const src = path.join(root, 'apps', dir), dst = path.join(tmp, dir);
   fs.cpSync(src, dst, { recursive: true });
   for (const f of shared[dir]) fs.copyFileSync(path.join(root, 'shared', f), path.join(dst, f));
@@ -17,9 +17,9 @@ for (const dir of ['livetv', 'films', 'series']) {
   // Service de saisie par téléphone (un par app : son identifiant commence par celui de l'app)
   const sid = info.id + '.service', sdir = path.join(tmp, dir + '-service');
   fs.mkdirSync(sdir, { recursive: true });
-  fs.copyFileSync(path.join(root, 'service', 'service.js'), path.join(sdir, 'service.js'));
+  fs.copyFileSync(path.join(root, 'service', dir === 'games' ? 'games-service.js' : 'service.js'), path.join(sdir, 'service.js'));
   fs.writeFileSync(path.join(sdir, 'package.json'), JSON.stringify({ name: sid, version: info.version, description: 'Saisie des identifiants IPTV', main: 'service.js' }, null, 2));
-  const cmds = ['startPair', 'pairStatus', 'stopPair', 'getConfig', 'setConfig', 'clearConfig'].map(n => ({ name: n, public: true }));
+  const cmds = (dir === 'games' ? ['fetchJson'] : ['startPair', 'pairStatus', 'stopPair', 'getConfig', 'setConfig', 'clearConfig']).map(n => ({ name: n, public: true }));
   fs.writeFileSync(path.join(sdir, 'services.json'), JSON.stringify({ id: sid, description: 'Saisie des identifiants IPTV', services: [{ name: sid, description: 'Saisie des identifiants IPTV', commands: cmds }] }, null, 2));
   execFileSync(ares, ['--no-minify', '-o', out, dst, sdir], { stdio: 'inherit' });
   const ipkName = `${info.id}_${info.version}_all.ipk`, ipk = path.join(out, ipkName);
