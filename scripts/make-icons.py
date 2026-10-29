@@ -54,8 +54,29 @@ def games():
     d.line((427, 60, 462, 80), fill=W, width=12)
     return im
 
-for d, fn in (('livetv', live), ('films', films), ('series', series), ('games', games)):
+def cast():
+    im = base((30, 200, 190), (20, 90, 160)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle((95, 120, 425, 365), 34, outline=W, width=24)                                  # écran
+    d.rounded_rectangle((200, 385, 320, 408), 11, fill=W)
+    d.ellipse((135, 295, 175, 335), fill=W)                                                            # signal (cast)
+    for r in (62, 112, 162):
+        d.arc((155 - r, 315 - r, 155 + r, 315 + r), 270, 360, fill=W, width=20)
+    return im
+
+def fsonic():
+    im = base((40, 110, 255), (10, 25, 110)); d = ImageDraw.Draw(im)
+    d.ellipse((120, 120, 400, 400), outline=(255, 205, 60, 255), width=34)                              # anneau
+    d.polygon([(290, 130), (190, 280), (255, 280), (225, 395), (340, 235), (270, 235)], fill=W)         # éclair
+    for y, l in ((170, 90), (260, 60), (350, 100)):
+        d.rounded_rectangle((40, y, 40 + l, y + 14), 7, fill=(255, 255, 255, 150))                      # lignes de vitesse
+    return im
+
+for d, fn in (('livetv', live), ('films', films), ('series', series), ('games', games), ('cast', cast)):
     im = fn().filter(ImageFilter.SMOOTH)
     for name, size in (('icon.png', 80), ('largeIcon.png', 130)):
         im.resize((size, size), Image.LANCZOS).save(f'apps/{d}/{name}')
     im.resize((256, 256), Image.LANCZOS).save(f'/tmp/icon-{d}.png')
+
+import os
+os.makedirs('android/app/src/main/res/mipmap-xxxhdpi', exist_ok=True)
+cast().filter(ImageFilter.SMOOTH).resize((192, 192), Image.LANCZOS).save('android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png')

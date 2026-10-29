@@ -11,6 +11,7 @@
   "license": "ISC",
   "devDependencies": {
     "@webos-tools/cli": "^3.2.6",
-    "hls.js": "^1.5.17"
+    "hls.js": "^1.5.17",
+    "qrcode-generator": "^1.4.4"
   }
 }

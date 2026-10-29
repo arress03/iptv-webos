@@ -1,4 +1,4 @@
-# IPTV webOS — IPTVLive · IPTVFilms · IPTVSeries · RapGame
+# IPTV webOS — IPTVLive · IPTVFilms · IPTVSeries · RapGame · TVCast
 
 Trois apps webOS indépendantes et épurées pour un abonnement **Xtream Codes**, installables via **Homebrew Channel**.
 Aucune pub, aucun tracker, aucun identifiant dans le dépôt : tu les saisis sur la TV (une fois par app) et ils restent sur la TV.
@@ -33,6 +33,12 @@ Flux **MPEG-TS direct** en premier, repli **HLS** automatique si le TS ne démar
 
 ## RapGame
 Jeux musicaux (rap FR) inspirés de raplay.fr : Blindtest (normal / évolutif / superposé), Qui chante ?, Pochette, Timeline, Album dans l'ordre, Place sans savoir, Mots-mêlés. Implémentation originale ; extraits 30 s, pochettes et dates viennent de l'API iTunes Search (via le service de l'app). Ne nécessite pas de compte IPTV.
+
+## TVCast (partage d'écran)
+- **Télé** : l'app TVCast affiche un code à 8 caractères + QR code, demande confirmation (OK) avant d'afficher un appareil, puis reçoit la vidéo en WebRTC. Nouveau code après chaque partage.
+- **PC / iPhone (iOS 27+)** : page web `https://<utilisateur>.github.io/<dépôt>/cast/` (déployée par `.github/workflows/pages.yml` ; activer Settings → Pages → Source : GitHub Actions). `getDisplayMedia` n'existe pas sur Chrome/Firefox Android.
+- **Android** : app native (`android/`, Kotlin + MediaProjection + libwebrtc), APK `TVCast.apk` compilé par le workflow de release (débug-signé : autoriser l'installation d'apps inconnues).
+- **Signalisation** : relais HTTP public [ntfy](https://ntfy.sh) (messages SDP découpés, < 4 Ko). La vidéo passe en pair à pair sur le Wi‑Fi (STUN Google pour la découverte). Autre relais : `?relay=https://mon-ntfy` sur la page web ; `localStorage cast.relay` côté télé.
 
 ## Installation
 1. Pousse ce dossier sur ton GitHub (dépôt public), puis crée un tag : `git tag v1.0.0 && git push --tags`.

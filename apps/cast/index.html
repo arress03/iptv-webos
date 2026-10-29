@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>TVCast</title>
+<meta name="viewport" content="width=1920">
+<link rel="stylesheet" href="cast.css"></head>
+<body>
+<video id="v" autoplay playsinline></video>
+<div id="panel">
+  <div class="left">
+    <h1>TVCast</h1>
+    <p class="sub">Partage l’écran de ton PC, iPhone ou Android sur cette télé</p>
+    <ol>
+      <li>Ouvre <b id="url"></b> (ou scanne le QR code)</li>
+      <li>Entre ce code :</li>
+    </ol>
+    <div id="code">········</div>
+    <div id="state" class="state">Connexion au relais…</div>
+  </div>
+  <div class="right"><div id="qr"></div><p class="hint">Android : installe l’app TVCast (voir le dépôt GitHub)</p></div>
+</div>
+<div id="ask" class="hidden"><div class="box"><div class="t">Accepter le partage d’écran ?</div><div id="who"></div><div class="k">OK = accepter &nbsp;·&nbsp; Retour = refuser</div></div></div>
+<div id="badge" class="hidden"></div>
+<script src="config.js"></script><script src="qrcode.js"></script><script src="rtcsig.js"></script><script src="app.js"></script>
+</body></html>

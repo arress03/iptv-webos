@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr" data-service="com.theo.iptv.web.service"><head><meta charset="utf-8"><title>TVWeb</title>
+<meta name="viewport" content="width=1920">
+<link rel="stylesheet" href="web.css"></head>
+<body>
+<iframe id="page" allowfullscreen allow="fullscreen; autoplay; encrypted-media" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
+<div id="home">
+  <h1>TVWeb</h1>
+  <p class="sub">Navigateur TV avec bloqueur de pubs, anti-popups et lecteur vidéo</p>
+  <div class="row"><input id="urlin" data-f placeholder="Adresse du site (ex. example.com)" autocomplete="off" spellcheck="false"><button id="go" data-f>Ouvrir</button></div>
+  <h2>Favoris <span class="hint">· OK : ouvrir · Vert : supprimer</span></h2>
+  <div id="favs"></div>
+  <div id="status" class="hint"></div>
+</div>
+<div id="bar" class="hidden">
+  <button data-f id="b-back">◀</button><button data-f id="b-fwd">▶</button><button data-f id="b-rel">⟳</button>
+  <input data-f id="b-url" spellcheck="false"><button data-f id="b-go">Aller</button>
+  <button data-f id="b-fav">☆</button><button data-f id="b-vid">🎬 <b id="nvid">0</b></button><button data-f id="b-home">⌂</button>
+  <span id="shield">🛡 <b id="nblk">0</b></span>
+</div>
+<div id="player" class="hidden"><video id="pv" playsinline></video><div id="pinfo"></div></div>
+<div id="vlist" class="hidden"><div class="box"><h2>Vidéos détectées</h2><div id="vitems"></div><div class="hint">OK : lire · Retour : fermer</div></div></div>
+<div id="toast"></div>
+<script src="hls.min.js"></script><script src="app.js"></script>
+</body></html>

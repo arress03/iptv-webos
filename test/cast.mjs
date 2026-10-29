@@ -1,0 +1,33 @@
+import { createRequire } from 'node:module'; import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
+import { startNtfy } from './ntfy-mock.mjs';
+const { chromium } = createRequire(import.meta.url)(process.env.PW);
+const root = path.resolve(new URL('..', import.meta.url).pathname), site = '/tmp/castsite';
+fs.rmSync(site, { recursive: true, force: true }); fs.mkdirSync(site + '/tv', { recursive: true }); fs.mkdirSync(site + '/send', { recursive: true });
+fs.cpSync(root + '/apps/cast', site + '/tv', { recursive: true }); fs.cpSync(root + '/web/cast', site + '/send', { recursive: true });
+for (const d of ['tv', 'send']) fs.copyFileSync(root + '/shared/rtcsig.js', `${site}/${d}/rtcsig.js`);
+fs.copyFileSync(root + '/node_modules/qrcode-generator/qrcode.js', site + '/tv/qrcode.js');
+fs.writeFileSync(site + '/tv/config.js', "window.CAST_RELAY='http://localhost:8095';window.CAST_URL='http://localhost:8091/send/index.html';");
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const st = http.createServer((q, r) => { const f = path.join(site, q.url.split('?')[0]); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' }); r.end(fs.readFileSync(f)); }).listen(8091);
+const nt = await startNtfy(8095);
+const b = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--auto-accept-this-tab-capture', '--autoplay-policy=no-user-gesture-required'] });
+const errs = [];
+const tv = await b.newPage({ viewport: { width: 1920, height: 1080 } }); tv.on('pageerror', e => errs.push('tv: ' + e.message)); tv.on('console', m => { if (m.type() === 'error') errs.push('tv console: ' + m.text()); });
+await tv.goto('http://localhost:8091/tv/index.html'); await tv.waitForFunction(() => document.getElementById('state').textContent.includes('attente'), null, { timeout: 8000 });
+await tv.screenshot({ path: '/tmp/claude-0/shots/c-1-tv-idle.png' });
+const code = await tv.evaluate(() => TVCastApp.state().code); console.log('code', code);
+const ph = await b.newPage({ viewport: { width: 420, height: 800 } }); ph.on('pageerror', e => errs.push('send: ' + e.message)); ph.on('console', m => errs.push('send console: ' + m.text()));
+await ph.addInitScript(() => { // flux factice si getDisplayMedia headless indisponible : canvas animé
+  navigator.mediaDevices.getDisplayMedia = async () => { const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const x = c.getContext('2d'); let n = 0; setInterval(() => { x.fillStyle = '#c33'; x.fillRect(0, 0, 1280, 720); x.fillStyle = '#fff'; x.font = '90px sans-serif'; x.fillText('CAST ' + (n++), 100, 300); }, 33); return c.captureStream(30); };
+});
+await ph.goto('http://localhost:8091/send/index.html?relay=http://localhost:8095#' + code); await ph.click('#go');
+await tv.waitForSelector('#ask:not(.hidden)', { timeout: 10000 }).catch(async e => { console.log('PHONE STATUS:', await ph.textContent('#st'), '| TV state:', await tv.textContent('#state'), errs); throw e; }); console.log('ask shown, who =', await tv.textContent('#who'));
+await tv.screenshot({ path: '/tmp/claude-0/shots/c-2-tv-ask.png' });
+await tv.keyboard.press('Enter');
+await tv.waitForFunction(() => { const v = document.getElementById('v'); return v.videoWidth > 0 && v.currentTime > 0; }, null, { timeout: 20000 });
+console.log('video', await tv.evaluate(() => { const v = document.getElementById('v'); return v.videoWidth + 'x' + v.videoHeight; }), 'phone status:', await ph.textContent('#st'));
+await tv.waitForTimeout(1500); await tv.screenshot({ path: '/tmp/claude-0/shots/c-3-tv-stream.png' }); await ph.screenshot({ path: '/tmp/claude-0/shots/c-4-phone.png' });
+// arrêt côté TV (Retour)
+await tv.keyboard.press('Escape'); await tv.waitForTimeout(1500);
+console.log('after back: panel visible', await tv.evaluate(() => !document.getElementById('panel').classList.contains('hidden')), 'new code differs', (await tv.evaluate(() => TVCastApp.state().code)) !== code, '| phone:', await ph.textContent('#st'));
+console.log('errors', errs); await b.close(); st.close(); nt.close();

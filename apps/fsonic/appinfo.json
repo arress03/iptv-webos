@@ -1,0 +1,15 @@
+{
+  "id": "com.theo.fsonic",
+  "version": "1.0.0",
+  "vendor": "Theo",
+  "type": "web",
+  "main": "index.html",
+  "title": "F-Sonic",
+  "appDescription": "Ouvre directement le jeu F-Sonic en plein écran.",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#0b0d12",
+  "bgColor": "#000000",
+  "resolution": "1920x1080",
+  "requiredACG": []
+}
