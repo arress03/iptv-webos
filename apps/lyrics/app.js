@@ -141,6 +141,29 @@
     }
   }
 
+  function luna(uri, params, cb) {
+    try {
+      if (typeof PalmServiceBridge === 'undefined') return cb({ returnValue: false, errorText: 'no-bridge' });
+      var b = new PalmServiceBridge(), done = false;
+      var t = setTimeout(function () { if (!done) { done = true; cb({ returnValue: false, errorText: 'timeout' }); } }, 6000);
+      b.onservicecallback = function (m) { if (done) return; done = true; clearTimeout(t); var r; try { r = JSON.parse(m); } catch (e) { r = { returnValue: false }; } cb(r); };
+      b.call(uri, JSON.stringify(params));
+    } catch (e) { cb({ returnValue: false, errorText: String(e) }); }
+  }
+  // Ouvre la recherche Genius dans le navigateur de la TV (les paroles s'affichent sur le site de Genius lui-même)
+  function genius() {
+    var v = (cur && mode === 'lyrics' ? cur.artistName + ' ' + cur.trackName : q.value).trim();
+    var url = 'https://genius.com/search?q=' + encodeURIComponent(v);
+    status.textContent = 'Ouverture de Genius dans le navigateur de la TV…';
+    luna('luna://com.webos.applicationManager/launch', { id: 'com.webos.app.browser', params: { target: url } }, function (r) {
+      if (r && r.returnValue) return;
+      var cmd = "luna-send -n 1 luna://com.webos.applicationManager/launch '" + JSON.stringify({ id: 'com.webos.app.browser', params: { target: url } }) + "'";
+      luna('luna://org.webosbrew.hbchannel.service/exec', { command: cmd }, function (r2) {
+        if (!(r2 && r2.returnValue)) status.textContent = 'Impossible d’ouvrir le navigateur (' + ((r && r.errorText) || 'refusé') + '). Adresse : genius.com';
+      });
+    });
+  }
+  $('gn').addEventListener('click', genius); $('gn2').addEventListener('click', genius);
   function goBack() { if (mode === 'lyrics') { stop(); setMode('list'); } else if (mode === 'list') setMode('search'); }
   $('back').addEventListener('click', goBack);
   $('go').addEventListener('click', search);

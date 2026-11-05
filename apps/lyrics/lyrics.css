@@ -26,3 +26,5 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#0b0d12;color:#e
 #back{position:absolute;top:26px;right:80px}
 #hint{width:360px}
 .it{cursor:pointer}
+#gn2{position:absolute;top:26px;right:300px}
+#hint{width:300px;font-size:20px}
