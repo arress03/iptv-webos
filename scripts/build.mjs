@@ -5,10 +5,10 @@ const repo = process.env.GITHUB_REPOSITORY || 'OWNER/REPO';          // ex. theo
 const branch = (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) && !(process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME).startsWith('v') ? (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) : 'main';
 const out = path.join(root, 'dist'); fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 const tmp = path.join(root, '.build'); fs.rmSync(tmp, { recursive: true, force: true });
-const shared = { games: ['core.js', 'ui.css'], livetv: ['core.js', 'ui.css'], films: ['core.js', 'ui.css', 'vod.js'], series: ['core.js', 'ui.css', 'vod.js'], cast: ['rtcsig.js'], fsonic: [] };
+const shared = { games: ['core.js', 'ui.css'], livetv: ['core.js', 'ui.css'], films: ['core.js', 'ui.css', 'vod.js'], series: ['core.js', 'ui.css', 'vod.js'], cast: ['rtcsig.js'], fsonic: [], lyrics: [] };
 const ares = path.join(root, 'node_modules/.bin/ares-package');
 const packages = [];
-for (const dir of ['livetv', 'films', 'series', 'games', 'cast', 'fsonic']) {
+for (const dir of ['livetv', 'films', 'series', 'games', 'cast', 'fsonic', 'lyrics']) {
   const src = path.join(root, 'apps', dir), dst = path.join(tmp, dir);
   fs.cpSync(src, dst, { recursive: true });
   for (const f of shared[dir]) fs.copyFileSync(path.join(root, 'shared', f), path.join(dst, f));
@@ -21,14 +21,14 @@ for (const dir of ['livetv', 'films', 'series', 'games', 'cast', 'fsonic']) {
   }
   // Service de saisie par téléphone (un par app : son identifiant commence par celui de l'app)
   const sid = info.id + '.service', sdir = path.join(tmp, dir + '-service');
-  if (dir !== 'cast' && dir !== 'fsonic') {
+  if (dir !== 'cast' && dir !== 'fsonic' && dir !== 'lyrics') {
   fs.mkdirSync(sdir, { recursive: true });
   fs.copyFileSync(path.join(root, 'service', dir === 'games' ? 'games-service.js' : 'service.js'), path.join(sdir, 'service.js'));
   fs.writeFileSync(path.join(sdir, 'package.json'), JSON.stringify({ name: sid, version: info.version, description: 'Saisie des identifiants IPTV', main: 'service.js' }, null, 2));
   const cmds = (dir === 'games' ? ['fetchJson'] : ['startPair', 'pairStatus', 'stopPair', 'getConfig', 'setConfig', 'clearConfig']).map(n => ({ name: n, public: true }));
   fs.writeFileSync(path.join(sdir, 'services.json'), JSON.stringify({ id: sid, description: 'Saisie des identifiants IPTV', services: [{ name: sid, description: 'Saisie des identifiants IPTV', commands: cmds }] }, null, 2));
   }
-  execFileSync(ares, ['--no-minify', '-o', out, dst, ...(dir === 'cast' || dir === 'fsonic' ? [] : [sdir])], { stdio: 'inherit' });
+  execFileSync(ares, ['--no-minify', '-o', out, dst, ...(dir === 'cast' || dir === 'fsonic' || dir === 'lyrics' ? [] : [sdir])], { stdio: 'inherit' });
   const ipkName = `${info.id}_${info.version}_all.ipk`, ipk = path.join(out, ipkName);
   if (!fs.existsSync(ipk)) throw new Error('IPK introuvable : ' + ipkName);
   const buf = fs.readFileSync(ipk), sha = crypto.createHash('sha256').update(buf).digest('hex');

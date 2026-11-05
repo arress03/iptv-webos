@@ -63,6 +63,14 @@ def cast():
         d.arc((155 - r, 315 - r, 155 + r, 315 + r), 270, 360, fill=W, width=20)
     return im
 
+def lyrics():
+    im = base((255, 140, 60), (200, 40, 110)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle((95, 100, 425, 400), 36, outline=W, width=24)
+    for y, l in ((170, 230), (230, 170), (290, 200)):
+        d.rounded_rectangle((140, y, 140 + l, y + 24), 12, fill=W)
+    d.ellipse((300, 300, 350, 345), fill=W); d.line((345, 322, 345, 235), fill=W, width=14)
+    return im
+
 def fsonic():
     im = base((40, 110, 255), (10, 25, 110)); d = ImageDraw.Draw(im)
     d.ellipse((120, 120, 400, 400), outline=(255, 205, 60, 255), width=34)                              # anneau
@@ -71,7 +79,7 @@ def fsonic():
         d.rounded_rectangle((40, y, 40 + l, y + 14), 7, fill=(255, 255, 255, 150))                      # lignes de vitesse
     return im
 
-for d, fn in (('livetv', live), ('films', films), ('series', series), ('games', games), ('cast', cast)):
+for d, fn in (('livetv', live), ('films', films), ('series', series), ('games', games), ('cast', cast), ('lyrics', lyrics)):
     im = fn().filter(ImageFilter.SMOOTH)
     for name, size in (('icon.png', 80), ('largeIcon.png', 130)):
         im.resize((size, size), Image.LANCZOS).save(f'apps/{d}/{name}')

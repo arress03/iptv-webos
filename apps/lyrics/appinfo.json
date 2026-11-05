@@ -1,0 +1,15 @@
+{
+  "id": "com.theo.lyrics",
+  "version": "1.0.0",
+  "vendor": "Theo",
+  "type": "web",
+  "main": "index.html",
+  "title": "Paroles",
+  "appDescription": "Cherche une chanson et affiche ses paroles sur la TV (base LRCLIB).",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#0b0d12",
+  "bgColor": "#0b0d12",
+  "resolution": "1920x1080",
+  "requiredACG": []
+}
