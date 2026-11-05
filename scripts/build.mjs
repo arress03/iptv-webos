@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import path from 'node:path'; import crypto from 'node:crypto'; import { execFileSync } from 'node:child_process';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repo = process.env.GITHUB_REPOSITORY || 'OWNER/REPO';          // ex. theo/iptv-webos
-const branch = process.env.GITHUB_REF_NAME && !process.env.GITHUB_REF_NAME.startsWith('v') ? process.env.GITHUB_REF_NAME : 'main';
+const branch = (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) && !(process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME).startsWith('v') ? (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) : 'main';
 const out = path.join(root, 'dist'); fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 const tmp = path.join(root, '.build'); fs.rmSync(tmp, { recursive: true, force: true });
 const shared = { games: ['core.js', 'ui.css'], livetv: ['core.js', 'ui.css'], films: ['core.js', 'ui.css', 'vod.js'], series: ['core.js', 'ui.css', 'vod.js'], cast: ['rtcsig.js'], fsonic: [] };
@@ -32,7 +32,7 @@ for (const dir of ['livetv', 'films', 'series', 'games', 'cast', 'fsonic']) {
   const ipkName = `${info.id}_${info.version}_all.ipk`, ipk = path.join(out, ipkName);
   if (!fs.existsSync(ipk)) throw new Error('IPK introuvable : ' + ipkName);
   const buf = fs.readFileSync(ipk), sha = crypto.createHash('sha256').update(buf).digest('hex');
-  const tag = process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME.startsWith('v') ? process.env.GITHUB_REF_NAME : 'v' + info.version;
+  const tag = (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) && (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME).startsWith('v') ? (process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME) : 'v' + info.version;
   const rel = `https://github.com/${repo}/releases/download/${tag}`;
   const iconUri = `https://raw.githubusercontent.com/${repo}/${branch}/apps/${dir}/largeIcon.png`;
   const manifest = { id: info.id, version: info.version, type: 'web', title: info.title, appDescription: info.appDescription,
