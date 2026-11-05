@@ -30,13 +30,20 @@
   function search() {
     var v = q.value.trim(); if (!v) return;
     status.textContent = 'Recherche…'; list.innerHTML = ''; results = [];
-    get(API + 'search?q=' + encodeURIComponent(v), function (err, data) {
-      if (err) { status.textContent = 'Erreur : ' + err; return; }
-      results = (data || []).filter(function (r) { return r.plainLyrics || r.syncedLyrics || r.instrumental; });
-      if (!results.length) { status.textContent = 'Aucun résultat pour « ' + v + ' ».'; return; }
-      status.textContent = results.length + ' résultat(s) — choisis avec ↑ ↓ puis OK';
-      sel = 0; renderList(); setMode('list');
-    });
+    var words = v.split(/\s+/), tries = ['q=' + encodeURIComponent(v), 'track_name=' + encodeURIComponent(v)];
+    if (words.length > 2) tries.push('q=' + encodeURIComponent(words.slice(0, 2).join(' ')), 'q=' + encodeURIComponent(words.slice(-2).join(' ')));
+    var n = 0, seen = {};
+    (function next() {
+      if (n >= tries.length) { status.textContent = 'Aucun résultat pour « ' + v + ' ». Vérifie l’orthographe ou essaie « artiste titre ».'; return; }
+      status.textContent = 'Recherche… (' + (n + 1) + '/' + tries.length + ')';
+      get(API + 'search?' + tries[n++], function (err, data) {
+        if (err) { status.textContent = 'Erreur : ' + err; return; }
+        results = (data || []).filter(function (r) { return !seen[r.id] && (seen[r.id] = 1) && (r.plainLyrics || r.syncedLyrics || r.instrumental); });
+        if (!results.length) return next();
+        status.textContent = results.length + ' résultat(s) — choisis avec ↑ ↓ puis OK';
+        sel = 0; renderList(); setMode('list');
+      });
+    })();
   }
 
   function renderList() {
