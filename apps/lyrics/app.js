@@ -50,7 +50,7 @@
     var per = 7, start = Math.max(0, Math.min(sel - 3, results.length - per)), h = '';
     for (var i = start; i < Math.min(results.length, start + per); i++) {
       var r = results[i];
-      h += '<div class="it' + (i === sel ? ' sel' : '') + '"><div><div class="n">' + esc(r.trackName) + '</div><div class="s">' + esc(r.artistName) +
+      h += '<div data-i="' + i + '" class="it' + (i === sel ? ' sel' : '') + '"><div><div class="n">' + esc(r.trackName) + '</div><div class="s">' + esc(r.artistName) +
         (r.albumName ? ' · ' + esc(r.albumName) : '') + (r.instrumental ? ' · instrumental' : r.syncedLyrics ? ' · synchronisées' : '') + '</div></div><div class="d">' + fmt(r.duration) + '</div></div>';
     }
     list.innerHTML = h;
@@ -87,8 +87,8 @@
 
   function foot() {
     $('foot').textContent = synced
-      ? 'OK : ' + (playing ? 'pause' : 'lancer le défilement') + ' · ←/→ : ±2 s · ↑/↓ : ligne · Retour : résultats   [' + fmt(pos) + ' / ' + fmt(cur.duration) + ']'
-      : '↑/↓ : défiler · Retour : résultats';
+      ? 'OK : ' + (playing ? 'pause' : 'lancer le défilement') + ' · ←/→ : ±2 s · ↑/↓ : ligne · Retour : liste   [' + fmt(pos) + ' / ' + fmt(cur.duration) + ']'
+      : '↑/↓ : défiler · Retour : liste';
   }
 
   function apply() {
@@ -115,7 +115,7 @@
   function stop() { playing = false; if (clock) clearInterval(clock); clock = null; }
 
   function key(e) {
-    var k = e.keyCode, back = k === 461 || k === 27 || k === 8 && mode !== 'search' || k === 10009;
+    var k = e.keyCode, back = k === 461 || k === 27 || k === 8 || k === 10009;
     if (mode === 'search') {
       if (k === 13) { e.preventDefault(); search(); }
       else if (k === 40 && results.length) { e.preventDefault(); setMode('list'); }
@@ -141,6 +141,13 @@
     }
   }
 
+  function goBack() { if (mode === 'lyrics') { stop(); setMode('list'); } else if (mode === 'list') setMode('search'); }
+  $('back').addEventListener('click', goBack);
+  $('go').addEventListener('click', search);
+  list.addEventListener('click', function (e) {
+    var el = e.target; while (el && el !== list && !el.hasAttribute('data-i')) el = el.parentNode;
+    if (el && el !== list) { sel = +el.getAttribute('data-i'); openLyrics(results[sel]); }
+  });
   document.addEventListener('keydown', key);
   window.addEventListener('load', function () { q.focus(); });
   window.LyricsApp = { search: search, openLyrics: openLyrics, state: function () { return { mode: mode, results: results, idx: idx, pos: pos }; }, setPos: function (p) { pos = p; apply(); } };
